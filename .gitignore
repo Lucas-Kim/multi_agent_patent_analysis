@@ -1,0 +1,62 @@
+# 환경 변수 파일 (API 키 등 민감 정보 포함)
+.env
+
+# Python 가상환경
+venv/
+env/
+ENV/
+.venv
+
+# Python 캐시 파일
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Jupyter Notebook 체크포인트
+.ipynb_checkpoints
+
+# 분석 결과 및 생성 파일
+vectorstore/
+log/
+*.log
+
+# 업로드된 PDF 파일 (선택사항 - 필요시 주석 처리)
+*.pdf
+
+# IDE 설정 파일
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.DS_Store
+
+# 패키지 관리자 파일
+pip-log.txt
+pip-delete-this-directory.txt
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Pytest 캐시
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MyPy 캐시
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# LangSmith 로컬 캐시 (있는 경우)
+.langsmith/
+
+# Streamlit 캐시
+.streamlit/
+
+# OS 관련
+Thumbs.db
+Desktop.ini
