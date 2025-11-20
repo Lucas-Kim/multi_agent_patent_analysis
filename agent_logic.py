@@ -1,5 +1,5 @@
 """
-Agent Logic
+Agent Logic - 노트북의 Cell 4와 Cell 5 로직을 그대로 유지
 """
 
 from config import llm, emb, VECTORSTORE_DIR, LOG_DIR
@@ -826,11 +826,11 @@ def search_by_similarity(query: str, k: int = 15) -> str:
         except Exception as e:
             # 필터링 실패시 일반 검색으로 fallback
             print(f"   ⚠️ Filter failed, using regular search: {e}")
-            docs = vectorstore.similarity_search(query, k=k)
+            docs = vectorstore.similarity_search(query, k=15)
     else:
         # patent_id가 없으면 일반 similarity 검색
         print(f"   ℹ️ No patent_id filter, using regular similarity search")
-        docs = vectorstore.similarity_search(query, k=k)
+        docs = vectorstore.similarity_search(query, k=15)
     
     # 포맷팅
     output = []
@@ -1155,7 +1155,7 @@ IMPORTANT:
     
 
 @tool
-def search_similar_patents_serpapi(search_query: str, num_results: int = 2) -> str:
+def search_similar_patents_serpapi(search_query: str, num_results: int = 10) -> str:
     """
     SerpAPI를 통해 Google Patents에서 유사한 특허를 검색합니다.
     단순 검색만 수행합니다.
@@ -1576,8 +1576,10 @@ CLAIMS 섹션이 존재하는 경우, 각 개별 claim을 식별하고 다음 �
     ]
     
     log_and_print("Calling LLM for preprocessing...", preprocessing_log)
-    response = llm.invoke(messages)
+    # 긴 특허 문서를 처리하기 위해 max_tokens을 충분히 크게 설정
+    response = llm.invoke(messages, config={"max_tokens": 16000})
     result_text = response.content
+    log_and_print(f"✓ LLM response received ({len(result_text)} characters)", preprocessing_log)
     
     # JSON 파싱
     try:
@@ -1589,9 +1591,27 @@ CLAIMS 섹션이 존재하는 경우, 각 개별 claim을 식별하고 다음 �
         
         patent_data = json.loads(result_text)
         log_and_print("✓ Successfully parsed patent data", preprocessing_log)
-    except Exception as e:
-        error_msg = f"Error parsing JSON: {e}\nRaw response: {result_text[:500]}"
+    except json.JSONDecodeError as e:
+        error_msg = f"❌ 오류: {e}"
         log_and_print(error_msg, preprocessing_log)
+        
+        # 전체 응답을 로그 파일에 저장
+        log_and_print("\n" + "="*80, preprocessing_log)
+        log_and_print("전체 LLM 응답:", preprocessing_log)
+        log_and_print("="*80, preprocessing_log)
+        log_and_print(result_text, preprocessing_log)
+        log_and_print("="*80 + "\n", preprocessing_log)
+        
+        # 콘솔에는 요약 출력
+        print(f"\n❌ JSON 파싱 실패: {e}")
+        print(f"응답 길이: {len(result_text)} 문자")
+        print(f"응답 시작: {result_text[:500]}")
+        print(f"응답 끝: {result_text[-500:]}")
+        print(f"\n💡 해결 방법:")
+        print(f"1. config.py에서 llm 정의시 max_tokens을 더 크게 설정 (예: 16000)")
+        print(f"2. 또는 agent_logic.py의 preprocess_node에서 llm.invoke() 호출시")
+        print(f"   config={{'max_tokens': 16000}}을 명시적으로 전달")
+        print(f"\n📝 자세한 내용은 로그 파일을 확인하세요: {preprocessing_log}")
         raise
 
     # ============================================================
@@ -1697,15 +1717,17 @@ innovation_agent = create_react_agent(
         "You are an expert skilled in analyzing patents. "
         "Your task is to identify and describe the key innovation points and distinctive features "
         "that differentiate this patent\n\n"
+        "Do not search similar patents\n\n"
+        "First, abstract is useful so search for abstract\n\n"
         "IMPORTANT: You have THREE search tools available:\n"
         "- 'get_available_metadata': Check available metadata (sections, claims) FIRST\n"
-        "- 'search_by_metadata': ONLY use when you need a specific section's full content or a specific claim number (e.g., 'get all CLAIMS', 'get claim 1', 'abstract')\n"
+        "- 'search_by_metadata': ONLY use when you need a specific section's full content or a specific claim number (e.g., 'abstract', 'independent claims', 'get all CLAIMS', 'get claim 1', )\n"
         "- 'search_by_similarity': USE THIS for all conceptual questions like 'innovation points', 'advantages', 'problems solved', 'benefits', or any keyword searches\n\n"
         "TOOL SELECTION RULES:\n"
         "- For questions like 'innovation points', 'advantages', 'problems solved', 'benefits', 'features' → ALWAYS use search_by_similarity\n"
         "- For questions asking about specific concepts/keywords (e.g., 'stepped edge', 'etching conditions') → ALWAYS use search_by_similarity\n"
-        "- For questions asking for 'all CLAIMS' or 'claim number X' → use search_by_metadata with filters\n"
-        "- When in doubt, use search_by_similarity - it works for most questions\n\n"
+        "- ⚠️ For questions asking for 'all CLAIMS' or 'claim number X' or 'ABSTRACT' → use search_by_metadata with filters\n"
+#         "- When in doubt, use search_by_similarity - it works for most questions\n\n"
         "Examples:\n"
         "- 'innovation points' → search_by_similarity('innovation points of this patent')\n"
         "- 'advantages of stepped edge' → search_by_similarity('advantages of stepped edge')\n"
